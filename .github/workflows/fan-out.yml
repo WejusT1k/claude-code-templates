@@ -21,7 +21,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Gate: a structurally-invalid change must never fan out to dependent repos.
+  # Both prepare and sync hang off this, so if validation fails nothing syncs.
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate registry, packs, and dry-run all targets
+        run: node scripts/validate.mjs
+
   prepare:
+    needs: validate
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
