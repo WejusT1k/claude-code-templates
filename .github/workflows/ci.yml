@@ -1,0 +1,28 @@
+name: Validate templates
+
+# Guard the source of truth: validate registry.json, pack structure, and that
+# every target dry-runs cleanly. Runs on PRs into main and on the main branch.
+
+on:
+  pull_request:
+    paths:
+      - 'packs/**'
+      - 'registry.json'
+      - 'scripts/**'
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate registry, packs, and dry-run all targets
+        run: node scripts/validate.mjs

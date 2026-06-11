@@ -1,0 +1,112 @@
+name: Fan-out template sync
+
+# On merge to main, open/update a PR in every dependent repo with refreshed
+# .claude/ assets. PRs are idempotent (stable branch) and only appear when the
+# sync produces a real diff — unaffected repos get nothing.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packs/**'
+      - 'registry.json'
+      - 'scripts/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: template-fan-out
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: matrix
+        name: Build target matrix from registry.json
+        run: |
+          node -e '
+            const r = require("./registry.json");
+            const targets = r.targets.map(t => ({
+              repo: t.repo,
+              branch: t.branch || r.defaultBranch || "main",
+            }));
+            require("fs").appendFileSync(
+              process.env.GITHUB_OUTPUT,
+              "matrix=" + JSON.stringify({ include: targets }) + "\n",
+            );
+          '
+
+  sync:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Split owner/repo
+        id: split
+        run: |
+          echo "owner=${REPO%%/*}" >> "$GITHUB_OUTPUT"
+          echo "name=${REPO##*/}" >> "$GITHUB_OUTPUT"
+        env:
+          REPO: ${{ matrix.repo }}
+
+      - name: Mint GitHub App token for target
+        id: token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.CLAUDE_TEMPLATES_APP_ID }}
+          private-key: ${{ secrets.CLAUDE_TEMPLATES_APP_PRIVATE_KEY }}
+          owner: ${{ steps.split.outputs.owner }}
+          repositories: ${{ steps.split.outputs.name }}
+
+      - name: Checkout central templates repo
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repo }}
+          ref: ${{ matrix.branch }}
+          token: ${{ steps.token.outputs.token }}
+          path: target
+
+      - name: Sync assets into target
+        run: |
+          node source/scripts/sync.mjs \
+            --repo "${{ matrix.repo }}" \
+            --target-dir target \
+            --source-dir source \
+            --source-sha "${{ github.sha }}" \
+            --summary-file pr-body.md
+
+      - name: Load PR body
+        id: body
+        run: |
+          {
+            echo 'text<<PR_BODY_EOF'
+            cat pr-body.md
+            echo 'PR_BODY_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update sync PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ steps.token.outputs.token }}
+          path: target
+          base: ${{ matrix.branch }}
+          branch: chore/claude-templates-sync
+          delete-branch: true
+          commit-message: "chore: sync Claude Code templates (${{ github.sha }})"
+          title: "chore: sync Claude Code templates"
+          body: ${{ steps.body.outputs.text }}
+          labels: claude-templates

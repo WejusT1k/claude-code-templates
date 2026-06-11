@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "source": "WejusT1k/claude-code-templates",
+  "defaultBranch": "main",
+  "targets": [
+    { "repo": "WejusT1k/tarot-ai", "packs": ["_global", "spa"] }
+  ]
+}

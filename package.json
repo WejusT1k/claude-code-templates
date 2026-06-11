@@ -1,0 +1,16 @@
+{
+  "name": "claude-code-templates",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Central source of truth for reusable Claude Code skills, agents, commands, and prompts, synced into dependent repos via auto-PRs.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "sync:dry": "node scripts/sync.mjs --dry-run",
+    "validate": "node scripts/validate.mjs"
+  },
+  "license": "UNLICENSED"
+}
