@@ -26,3 +26,4 @@ Apply this whenever you author a git commit or describe changes for a PR.
 - Breaking changes: add a `BREAKING CHANGE:` footer.
 
 This skill is shared across every repo via `claude-code-templates`. Edit it there, not here.
+
