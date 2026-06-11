@@ -73,7 +73,7 @@ jobs:
 
       - name: Mint GitHub App token for target
         id: token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
         with:
           app-id: ${{ vars.CLAUDE_TEMPLATES_APP_ID }}
           private-key: ${{ secrets.CLAUDE_TEMPLATES_APP_PRIVATE_KEY }}
@@ -102,24 +102,14 @@ jobs:
             --source-sha "${{ github.sha }}" \
             --summary-file pr-body.md
 
-      - name: Load PR body
-        id: body
-        run: |
-          {
-            echo 'text<<PR_BODY_EOF'
-            cat pr-body.md
-            echo 'PR_BODY_EOF'
-          } >> "$GITHUB_OUTPUT"
-
       - name: Open or update sync PR
-        uses: peter-evans/create-pull-request@v6
-        with:
-          token: ${{ steps.token.outputs.token }}
-          path: target
-          base: ${{ matrix.branch }}
-          branch: chore/claude-templates-sync
-          delete-branch: true
-          commit-message: "chore: sync Claude Code templates (${{ github.sha }})"
-          title: "chore: sync Claude Code templates"
-          body: ${{ steps.body.outputs.text }}
-          labels: claude-templates
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          bash source/scripts/open-pr.sh \
+            --target-dir target \
+            --base "${{ matrix.branch }}" \
+            --branch chore/claude-templates-sync \
+            --title "chore: sync Claude Code templates" \
+            --sha "${{ github.sha }}" \
+            --body-file pr-body.md

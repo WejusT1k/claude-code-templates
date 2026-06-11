@@ -27,3 +27,4 @@ Apply this whenever you author a git commit or describe changes for a PR.
 
 This skill is shared across every repo via `claude-code-templates`. Edit it there, not here.
 
+
